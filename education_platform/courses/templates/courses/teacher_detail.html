@@ -1,0 +1,7 @@
+{% extends 'base.html' %} {% block content %}
+<h2>{{ teacher.name }}</h2>
+<p><strong>Courses:</strong> {{ teacher.courses|join:", " }}</p>
+
+<a href="{% url 'teacher_update' teacher.pk %}">Edit</a> |
+<a href="{% url 'teacher_delete' teacher.pk %}">Delete</a>
+{% endblock %}

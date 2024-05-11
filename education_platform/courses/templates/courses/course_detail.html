@@ -1,0 +1,11 @@
+{% extends 'base.html' %} {% block content %}
+<h2>{{ course.title }}</h2>
+<p><strong>Summary:</strong> {{ course.summary }}</p>
+<p><strong>Level:</strong> {{ course.level }}</p>
+<p><strong>Available Slots:</strong> {{ course.available_slots }}</p>
+<p><strong>Teacher ID:</strong> {{ course.teacher_id }}</p>
+<p><strong>Enrolled Students:</strong> {{ course.student_ids|join:", " }}</p>
+
+<a href="{% url 'course_update' course.pk %}">Edit</a> |
+<a href="{% url 'course_delete' course.pk %}">Delete</a>
+{% endblock %}

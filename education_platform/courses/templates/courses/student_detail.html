@@ -1,0 +1,9 @@
+{% extends 'base.html' %} {% block content %}
+<h2>{{ student.name }}</h2>
+<p>
+  <strong>Enrolled Courses:</strong> {{ student.enrolled_courses|join:", " }}
+</p>
+
+<a href="{% url 'student_update' student.pk %}">Edit</a> |
+<a href="{% url 'student_delete' student.pk %}">Delete</a>
+{% endblock %}
