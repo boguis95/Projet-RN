@@ -1,0 +1,15 @@
+{% extends "base.html" %} {% block content %}
+<h2>Search Results</h2>
+
+{% if courses %}
+<ul>
+  {% for course in courses %}
+  <li>
+    <a href="{% url 'courses:course_detail' course.id %}">{{ course.title }}</a>
+    - Level: {{ course.level }}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p>No courses found.</p>
+{% endif %} {% endblock %}

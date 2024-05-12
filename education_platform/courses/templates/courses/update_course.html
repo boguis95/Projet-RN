@@ -1,0 +1,47 @@
+{% extends "base.html" %} {% block content %}
+<h2>Update Course</h2>
+<form method="post">
+  {% csrf_token %}
+  <div class="form-group">
+    <label for="id_title">Title:</label>
+    <input
+      type="text"
+      name="title"
+      class="form-control"
+      id="id_title"
+      value="{{ form.title.value }}"
+    />
+  </div>
+  <div class="form-group">
+    <label for="id_summary">Summary:</label>
+    <input
+      type="text"
+      name="summary"
+      class="form-control"
+      id="id_summary"
+      value="{{ form.summary.value }}"
+    />
+  </div>
+  <div class="form-group">
+    <label for="id_level">Level:</label>
+    <input
+      type="text"
+      name="level"
+      class="form-control"
+      id="id_level"
+      value="{{ form.level.value }}"
+    />
+  </div>
+  <div class="form-group">
+    <label for="id_max_students">Max Students:</label>
+    <input
+      type="number"
+      name="max_students"
+      class="form-control"
+      id="id_max_students"
+      value="{{ form.max_students.value }}"
+    />
+  </div>
+  <button type="submit" class="btn btn-primary">Update</button>
+</form>
+{% endblock %}

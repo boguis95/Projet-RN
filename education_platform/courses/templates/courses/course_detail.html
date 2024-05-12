@@ -1,11 +1,74 @@
-{% extends 'base.html' %} {% block content %}
+{% extends "base.html" %} {% block content %}
 <h2>{{ course.title }}</h2>
 <p><strong>Summary:</strong> {{ course.summary }}</p>
 <p><strong>Level:</strong> {{ course.level }}</p>
-<p><strong>Available Slots:</strong> {{ course.available_slots }}</p>
-<p><strong>Teacher ID:</strong> {{ course.teacher_id }}</p>
-<p><strong>Enrolled Students:</strong> {{ course.student_ids|join:", " }}</p>
+<p>
+  <strong>Teacher:</strong> {{ course.teacher.name if course.teacher else "No
+  teacher assigned" }}
+</p>
+<p>
+  <strong>Enrolled Students:</strong>
+  <span id="enrolledCount">{{ course.students|length }}</span> / {{
+  course.max_students }}
+</p>
 
-<a href="{% url 'course_update' course.pk %}">Edit</a> |
-<a href="{% url 'course_delete' course.pk %}">Delete</a>
+<div id="studentList">
+  <strong>Currently Enrolled:</strong>
+  <ul>
+    {% for student in course.students %}
+    <li>{{ student.name }}</li>
+    {% endfor %}
+  </ul>
+</div>
+
+<h4>Enroll a Student</h4>
+<form id="enrollForm" method="post">
+  {% csrf_token %}
+  <select name="student_id" class="form-control">
+    {% for student in students %}
+    <option value="{{ student.id }}">{{ student.name }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary mt-2">Enroll</button>
+</form>
+
+<a href="{% url 'courses:update_course' course.id %}" class="btn btn-info mt-3">
+  Edit Course
+</a>
+{% endblock %} {% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const courseId = {{ course.id }};
+    const wsScheme = window.location.protocol == "https:" ? "wss" : "ws";
+    const wsPath = wsScheme + '://' + window.location.host + '/ws/course/' + courseId + '/';
+    const chatSocket = new WebSocket(wsPath);
+
+    chatSocket.onmessage = function(e) {
+      const data = JSON.parse(e.data);
+      if (data.type === 'enrollment') {
+        const studentList = document.getElementById('studentList').querySelector('ul');
+        const newStudent = document.createElement('li');
+        newStudent.innerText = data.student_name;
+        studentList.appendChild(newStudent);
+
+        const enrolledCount = document.getElementById('enrolledCount');
+        enrolledCount.innerText = parseInt(enrolledCount.innerText) + 1;
+      }
+    };
+
+    chatSocket.onclose = function(e) {
+      console.error('Chat socket closed unexpectedly');
+    };
+
+    document.getElementById('enrollForm').onsubmit = function(e) {
+      e.preventDefault();
+      const studentId = document.querySelector('#enrollForm select[name="student_id"]').value;
+      chatSocket.send(JSON.stringify({'student_id': studentId}));
+    };
+
+    window.onbeforeunload = function() {
+      chatSocket.close();
+    };
+  });
+</script>
 {% endblock %}

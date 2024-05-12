@@ -1,0 +1,41 @@
+{% extends "base.html" %} {% block content %}
+<h2>List of Courses</h2>
+<ul>
+  {% for course in courses %}
+  <li>
+    <a href="{% url 'courses:course_detail' course.id %}">{{ course.title }}</a>
+    - Level: {{ course.level }} {% if course.is_active %}
+    <a
+      href="{% url 'courses:enroll_course' course.id %}"
+      class="btn btn-small btn-primary"
+      >Enroll</a
+    >
+    {% else %}
+    <span class="text-muted">Inactive</span>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+
+{% endblock %} {% block extra_js %}
+<script>
+  document.addEventListener("DOMContentLoaded", (event) => {
+    const chatSocket = new WebSocket(
+      "ws://" + window.location.host + "/ws/courseupdates/"
+    );
+
+    chatSocket.onmessage = function (e) {
+      const data = JSON.parse(e.data);
+      console.log("Data received from websocket:", data);
+    };
+
+    chatSocket.onclose = function (e) {
+      console.error("Chat socket closed unexpectedly");
+    };
+
+    window.onbeforeunload = function () {
+      chatSocket.close();
+    };
+  });
+</script>
+{% endblock %}

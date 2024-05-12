@@ -1,37 +1,35 @@
-from redis_om import HashModel, Field
-from redis_om import get_redis_connection
-import datetime
+# courses/models.py
 
-# Assurez-vous de configurer redis_db correctement
-redis_db = get_redis_connection(
-    host="localhost",
-    port=6379,
-    db=3,
-    decode_responses=True
-)
+from django.db import models
+from django.contrib.auth.models import User
+from django.utils import timezone
 
-class Student(HashModel):
-    name: str = Field(index=True)
-    enrolled_courses: list = Field()
+class Teacher(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
 
-    class Meta:
-        database = redis_db
+    def __str__(self):
+        return self.name
 
-class Teacher(HashModel):
-    name: str = Field(index=True)
-    courses: list = Field()
+class Student(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    name = models.CharField(max_length=255)
 
-    class Meta:
-        database = redis_db
+    def __str__(self):
+        return self.name
 
-class Course(HashModel):
-    title: str = Field(index=True)
-    teacher_id: str = Field(index=True)
-    summary: str = Field()
-    level: str = Field(index=True)
-    available_slots: int = Field()
-    student_ids: list = Field()
-    expiration_time: datetime.datetime = Field(index=True, default_factory=lambda: datetime.datetime.now() + datetime.timedelta(days=7))
+class Course(models.Model):
+    title = models.CharField(max_length=255)
+    summary = models.TextField()
+    level = models.CharField(max_length=50)
+    max_students = models.PositiveIntegerField()
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name='courses')
+    students = models.ManyToManyField(Student, related_name='courses', blank=True)
+    last_updated = models.DateTimeField(default=timezone.now)
 
-    class Meta:
-        database = redis_db
+    def __str__(self):
+        return self.title
+
+    def is_active(self):
+        # Assume a course expires after 7 days of no updates or new students
+        return (timezone.now() - self.last_updated).days < 7

@@ -1,9 +1,10 @@
-{% extends 'base.html' %} {% block content %}
-<h2>{{ student.name }}</h2>
-<p>
-  <strong>Enrolled Courses:</strong> {{ student.enrolled_courses|join:", " }}
-</p>
+<!-- courses/templates/courses/teacher_detail.html -->
 
-<a href="{% url 'student_update' student.pk %}">Edit</a> |
-<a href="{% url 'student_delete' student.pk %}">Delete</a>
+{% extends "base.html" %} {% block content %}
+<h2>{{ teacher.name }}</h2>
+
+<p><strong>ID:</strong> {{ teacher.id }}</p>
+<p><strong>User:</strong> {{ teacher.user.username }}</p>
+
+<a href="{% url 'courses:update_profile' %}">Edit Profile</a>
 {% endblock %}

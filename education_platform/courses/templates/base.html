@@ -2,19 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Education Platform</title>
+    <title>Educative Platform</title>
   </head>
   <body>
-    <header>
-      <h1>Education Platform</h1>
-      <nav>
-        <ul>
-          <li><a href="{% url 'course_list' %}">Courses</a></li>
-          <li><a href="{% url 'student_list' %}">Students</a></li>
-          <li><a href="{% url 'teacher_list' %}">Teachers</a></li>
-        </ul>
-      </nav>
-    </header>
-    <main>{% block content %} {% endblock %}</main>
+    <div class="container">{% block content %} {% endblock content %}</div>
+
+    {% block extra_js %}{% endblock %}
   </body>
 </html>

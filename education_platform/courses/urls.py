@@ -1,25 +1,19 @@
+# courses/urls.py
+
 from django.urls import path
 from . import views
 
+app_name = 'courses'
+
 urlpatterns = [
-    # Course URLs
-    path('courses/', views.course_list, name='course_list'),
-    path('courses/<str:pk>/', views.course_detail, name='course_detail'),
-    path('courses/create/', views.course_create, name='course_create'),
-    path('courses/<str:pk>/update/', views.course_update, name='course_update'),
-    path('courses/<str:pk>/delete/', views.course_delete, name='course_delete'),
-
-    # Student URLs
-    path('students/', views.student_list, name='student_list'),
-    path('students/<str:pk>/', views.student_detail, name='student_detail'),
-    path('students/create/', views.student_create, name='student_create'),
-    path('students/<str:pk>/update/', views.student_update, name='student_update'),
-    path('students/<str:pk>/delete/', views.student_delete, name='student_delete'),
-
-    # Teacher URLs
-    path('teachers/', views.teacher_list, name='teacher_list'),
-    path('teachers/<str:pk>/', views.teacher_detail, name='teacher_detail'),
-    path('teachers/create/', views.teacher_create, name='teacher_create'),
-    path('teachers/<str:pk>/update/', views.teacher_update, name='teacher_update'),
-    path('teachers/<str:pk>/delete/', views.teacher_delete, name='teacher_delete'),
+    path('', views.list_courses, name='list_courses'),
+    path('<int:course_id>/', views.course_detail, name='course_detail'),
+    path('enroll/<int:course_id>/', views.enroll_course, name='enroll_course'),
+    path('search/', views.search_courses, name='search_courses'),
+    path('update_course/<int:course_id>/', views.update_course, name='update_course'),
+    path('update_profile/', views.update_profile, name='update_profile'),
+    path('teachers/', views.list_teachers, name='list_teachers'),
+    path('students/', views.list_students, name='list_students'),
+    path('teacher/<int:teacher_id>/', views.teacher_detail, name='teacher_detail'),
+    path('student/<int:student_id>/', views.student_detail, name='student_detail'),
 ]

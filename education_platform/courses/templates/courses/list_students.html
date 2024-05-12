@@ -1,0 +1,14 @@
+<!-- courses/templates/courses/list_students.html -->
+
+{% extends "base.html" %} {% block content %}
+<h2>List of Students</h2>
+<ul>
+  {% for student in students %}
+  <li>
+    <a href="{% url 'courses:student_detail' student.id %}"
+      >{{ student.name }}</a
+    >
+  </li>
+  {% endfor %}
+</ul>
+{% endblock %}

@@ -1,152 +1,238 @@
+# courses/views.py
+
 from django.shortcuts import render, redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+import redis
+import json
 from .models import Course, Student, Teacher
-from .forms import CourseForm, StudentForm, TeacherForm
-from .publishers import publish_course_update, publish_course_creation
-from datetime import timedelta
-import datetime
+from .forms import CourseForm, StudentProfileForm, TeacherProfileForm  # Ensure you import the forms here
+from datetime import datetime
+import pytz 
+from django.http import Http404
 
-# Courses Views
-def course_list(request):
-    courses = list(Course.all())
-    return render(request, 'courses/course_list.html', {'courses': courses})
 
-def course_detail(request, pk):
-    course = Course.get(pk)
-    return render(request, 'courses/course_detail.html', {'course': course})
 
-def course_create(request):
+# Initialize Redis connection
+r = redis.StrictRedis(host='localhost', port=6379, db=0)
+
+def list_courses(request):
+    course_keys = r.keys('course:*')
+    courses = [r.hgetall(course_key) for course_key in course_keys]
+
+    processed_courses = []
+
+    for course in courses:
+        # Decode all byte string keys and values
+        course_data = {key.decode('utf-8') if isinstance(key, bytes) else key: 
+                       value.decode('utf-8') if isinstance(value, bytes) else value 
+                       for key, value in course.items()}
+
+        # Convert 'id' and 'max_students' to integers
+        course_data['id'] = int(course_data.get('id', 0))
+        course_data['max_students'] = int(course_data.get('max_students', 0))
+
+        # Convert 'students' from JSON string back to list
+        course_data['students'] = json.loads(course_data.get('students', '[]'))
+
+        # Ensure 'last_updated' is parsed correctly
+        if 'last_updated' in course_data:
+            last_updated_str = course_data['last_updated']
+            last_updated = datetime.strptime(last_updated_str, "%Y-%m-%d %H:%M:%S.%f")
+            course_data['last_updated'] = pytz.utc.localize(last_updated)
+        else:
+            course_data['last_updated'] = timezone.now()
+
+        # Determine if the course is active
+        course_data['is_active'] = (timezone.now() - course_data['last_updated']).days < 7
+
+        # Append to the list of processed courses
+        processed_courses.append(course_data)
+
+    print("Processed Courses Data:", processed_courses)  # Debug: Final processed data
+
+    return render(request, 'courses/list_courses.html', {'courses': processed_courses})
+
+
+
+def list_teachers(request):
+    teachers = Teacher.objects.all()
+    return render(request, 'courses/list_teachers.html', {'teachers': teachers})
+
+def list_students(request):
+    students = Student.objects.all()
+    return render(request, 'courses/list_students.html', {'students': students})
+
+def teacher_detail(request, teacher_id):
+    teacher = get_object_or_404(Teacher, id=teacher_id)
+    return render(request, 'courses/teacher_detail.html', {'teacher': teacher})
+
+def student_detail(request, student_id):
+    student = get_object_or_404(Student, id=student_id)
+    return render(request, 'courses/student_detail.html', {'student': student})
+
+
+
+def search_courses(request):
+    query = request.GET.get('query', '')
+    
+    if query:
+        # Fetch all courses and filter by title
+        course_keys = r.keys('course:*')
+        courses = [r.hgetall(key) for key in course_keys]
+        filtered_courses = [course for course in courses if query.lower() in course.get('title', '').lower()]
+    else:
+        filtered_courses = []
+
+    return render(request, 'courses/search_courses.html', {'courses': filtered_courses})
+
+
+
+def course_detail(request, course_id):
+    # Construct the Redis key for the course
+    course_key = f"course:{course_id}"
+    
+    # Check if the course key exists in Redis
+    if not r.exists(course_key):
+        raise Http404("No Course matches the given query.")
+    
+    # Fetch the course data
+    course_data = r.hgetall(course_key)
+    
+    # Convert numerical fields from strings
+    course_data['id'] = int(course_data.get('id', course_id))
+    course_data['max_students'] = int(course_data.get('max_students', 0))
+    
+    # Deserialize 'students' list
+    student_ids = json.loads(course_data.get('students', '[]'))
+    course_data['students'] = Student.objects.filter(id__in=student_ids)
+    
+    # Fetch the teacher
+    teacher_id = course_data.get('teacher_id')
+    if teacher_id:
+        course_data['teacher'] = Teacher.objects.get(id=teacher_id)
+    
+    # Handle the form to enroll a new student
+    if request.method == 'POST' and 'student_id' in request.POST:
+        student_id = request.POST['student_id']
+        student = get_object_or_404(Student, id=student_id)
+        
+        if len(student_ids) < course_data['max_students']:
+            student_ids.append(student.id)
+            r.hset(course_key, 'students', json.dumps(student_ids))
+            
+            # Redirect to refresh the page and the data
+            return redirect('courses:course_detail', course_id=course_id)
+
+    # All students not currently enrolled in this course
+    students = Student.objects.exclude(id__in=student_ids)
+    
+    return render(request, 'courses/course_detail.html', {
+        'course': course_data,
+        'students': students
+    })
+
+
+
+
+def enroll_course(request, course_id):
+    # Construct the Redis key for the course
+    course_key = f"course:{course_id}"
+    
+    # Check if the course key exists in Redis
+    if not r.exists(course_key):
+        raise Http404("No Course matches the given query.")
+    
+    # Fetch the course data
+    course_data = r.hgetall(course_key)
+    
+    # Convert numerical fields from strings
+    course_data['id'] = int(course_data.get('id', course_id))
+    course_data['max_students'] = int(course_data.get('max_students', 0))
+    
+    # Deserialize 'students' list
+    course_data['students'] = json.loads(course_data.get('students', '[]'))
+    
+    # Check if the user is trying to enroll (this is a simplified logic example)
+    if request.method == 'POST':
+        # Example: Get or create a student (this is a placeholder logic)
+        student_id = request.POST.get('student_id')
+        student, _ = Student.objects.get_or_create(id=student_id, defaults={'name': f"Student {student_id}"})
+        
+        # Check if the course can accept more students
+        if len(course_data['students']) < course_data['max_students']:
+            # Enroll the student by adding them to the course's student list
+            course_data['students'].append(student.id)
+            
+            # Save the updated students list back to Redis
+            r.hset(course_key, 'students', json.dumps(course_data['students']))
+            
+            # Redirect to the course detail page
+            return redirect('courses:course_detail', course_id=course_data['id'])
+        else:
+            return render(request, 'courses/enroll_course.html', {'error': 'This course is full', 'course': course_data})
+
+    return render(request, 'courses/enroll_course.html', {'course': course_data})
+
+
+
+
+def update_course(request, course_id):
+    # Construct the Redis key for the course
+    course_key = f"course:{course_id}"
+    
+    # Check if the course key exists in Redis
+    if not r.exists(course_key):
+        raise Http404("No Course matches the given query.")
+    
+    # Fetch the course data
+    course_data = r.hgetall(course_key)
+    
+    # Convert numerical fields
+    course_data['id'] = int(course_data.get('id', course_id))
+    course_data['max_students'] = int(course_data.get('max_students', 0))
+    course_data['students'] = json.loads(course_data.get('students', '[]'))
+    
+    # Handle POST request: Update course data
     if request.method == 'POST':
         form = CourseForm(request.POST)
         if form.is_valid():
-            course = Course(**form.cleaned_data)
-            course.save()
-            # Publie une création de cours
-            publish_course_creation(course)
-            return redirect('course_list')
+            # Update course fields based on form data
+            course_data.update({
+                'title': form.cleaned_data['title'],
+                'summary': form.cleaned_data['summary'],
+                'level': form.cleaned_data['level'],
+                'max_students': form.cleaned_data['max_students'],
+                'last_updated': datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+            })
+            # Save updated course data to Redis
+            r.hmset(course_key, course_data)
+            return redirect('courses:course_detail', course_id=course_data['id'])
     else:
-        form = CourseForm()
-    return render(request, 'courses/course_form.html', {'form': form})
+        # Initialize form with existing course data for GET request
+        form = CourseForm(initial=course_data)
+    
+    return render(request, 'courses/update_course.html', {'form': form, 'course_id': course_id})
 
-def course_update(request, course_id):
-    course = Course.get(course_id)
+
+def update_profile(request):
+    if hasattr(request.user, 'student'):
+        profile = request.user.student
+        ProfileForm = StudentProfileForm
+    else:
+        profile = request.user.teacher
+        ProfileForm = TeacherProfileForm
+
     if request.method == 'POST':
-        form = CourseForm(request.POST, instance=course)
+        form = ProfileForm(request.POST, instance=profile)
         if form.is_valid():
             form.save()
-            # Publie une mise à jour de cours
-            publish_course_update(course)
-            return redirect('course_detail', pk=course.pk)
+            return redirect('home')
     else:
-        form = CourseForm(instance=course)
-    return render(request, 'courses/course_form.html', {'form': form})
+        form = ProfileForm(instance=profile)
 
-def course_delete(request, pk):
-    course = Course.get(pk)
-    if request.method == 'POST':
-        course.delete()
-        return redirect('course_list')
-    return render(request, 'courses/course_confirm_delete.html', {'course': course})
-
-# Students Views
-def student_list(request):
-    students = list(Student.all())
-    return render(request, 'courses/student_list.html', {'students': students})
-
-def student_detail(request, pk):
-    student = Student.get(pk)
-    return render(request, 'courses/student_detail.html', {'student': student})
-
-def student_create(request):
-    if request.method == 'POST':
-        form = StudentForm(request.POST)
-        if form.is_valid():
-            student = Student(**form.cleaned_data)
-            student.save()
-            return redirect('student_list')
-    else:
-        form = StudentForm()
-    return render(request, 'courses/student_form.html', {'form': form})
-
-def student_update(request, pk):
-    student = Student.get(pk)
-    if request.method == 'POST':
-        form = StudentForm(request.POST, instance=student)
-        if form.is_valid():
-            form.save()
-            return redirect('student_detail', pk=student.pk)
-    else:
-        form = StudentForm(instance=student)
-    return render(request, 'courses/student_form.html', {'form': form})
-
-def student_delete(request, pk):
-    student = Student.get(pk)
-    if request.method == 'POST':
-        student.delete()
-        return redirect('student_list')
-    return render(request, 'courses/student_confirm_delete.html', {'student': student})
-
-# Teachers Views
-def teacher_list(request):
-    teachers = list(Teacher.all())
-    return render(request, 'courses/teacher_list.html', {'teachers': teachers})
-
-def teacher_detail(request, pk):
-    teacher = Teacher.get(pk)
-    return render(request, 'courses/teacher_detail.html', {'teacher': teacher})
-
-def teacher_create(request):
-    if request.method == 'POST':
-        form = TeacherForm(request.POST)
-        if form.is_valid():
-            teacher = Teacher(**form.cleaned_data)
-            teacher.save()
-            return redirect('teacher_list')
-    else:
-        form = TeacherForm()
-    return render(request, 'courses/teacher_form.html', {'form': form})
-
-def teacher_update(request, pk):
-    teacher = Teacher.get(pk)
-    if request.method == 'POST':
-        form = TeacherForm(request.POST, instance=teacher)
-        if form.is_valid():
-            form.save()
-            return redirect('teacher_detail', pk=teacher.pk)
-    else:
-        form = TeacherForm(instance=teacher)
-    return render(request, 'courses/teacher_form.html', {'form': form})
-
-def teacher_delete(request, pk):
-    teacher = Teacher.get(pk)
-    if request.method == 'POST':
-        teacher.delete()
-        return redirect('teacher_list')
-    return render(request, 'courses/teacher_confirm_delete.html', {'teacher': teacher})
+    return render(request, 'courses/update_profile.html', {'form': form})
 
 
-def enroll_student_in_course(student_id, course_id):
-    course = Course.get(course_id)
-    student = Student.get(student_id)
-
-    if course.available_slots > 0 and student.pk not in course.student_ids:
-        course.student_ids.append(student.pk)
-        course.available_slots -= 1
-        # Rafraîchir la date d'expiration du cours
-        course.expiration_time = datetime.datetime.now() + timedelta(days=7)
-        course.save()
-        student.enrolled_courses.append(course.pk)
-        student.save()
-        return True
-    return False
-
-# views.py
-
-def student_course_registration(request, student_id, course_id):
-    success = enroll_student_in_course(student_id, course_id)
-    if success:
-        course = Course.get(course_id)
-        publish_course_update(course)
-        return redirect('course_detail', pk=course_id)
-    else:
-        return render(request, 'error.html', {'message': 'Failed to enroll in course'})
-
+def home(request):
+    return render(request, 'home.html')

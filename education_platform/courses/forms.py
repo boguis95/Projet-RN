@@ -1,17 +1,21 @@
+# courses/forms.py
+
 from django import forms
 from .models import Course, Student, Teacher
 
-class CourseForm(forms.ModelForm):
-    class Meta:
-        model = Course
-        fields = ['title', 'teacher_id', 'summary', 'level', 'available_slots', 'student_ids']
+class CourseForm(forms.Form):
+    title = forms.CharField(max_length=100)
+    summary = forms.CharField(widget=forms.Textarea)
+    level = forms.CharField(max_length=50)
+    max_students = forms.IntegerField(min_value=1)
+        
 
-class StudentForm(forms.ModelForm):
+class StudentProfileForm(forms.ModelForm):
     class Meta:
         model = Student
-        fields = ['name', 'enrolled_courses']
+        fields = ['name', 'user']
 
-class TeacherForm(forms.ModelForm):
+class TeacherProfileForm(forms.ModelForm):
     class Meta:
         model = Teacher
-        fields = ['name', 'courses']
+        fields = ['name', 'user']

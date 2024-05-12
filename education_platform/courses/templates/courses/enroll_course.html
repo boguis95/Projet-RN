@@ -1,0 +1,21 @@
+{% extends "base.html" %} {% block content %}
+<h1>Enroll in {{ course.title }}</h1>
+
+{% if error %}
+<p class="text-danger">{{ error }}</p>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+  <label for="student_id">Student ID:</label>
+  <input
+    type="text"
+    id="student_id"
+    name="student_id"
+    class="form-control"
+    required
+  />
+
+  <button type="submit" class="btn btn-primary mt-2">Enroll</button>
+</form>
+{% endblock %}

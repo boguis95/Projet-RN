@@ -1,5 +1,5 @@
 """
-URL configuration for education_platform project.
+URL configuration for educative project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.0/topics/http/urls/
@@ -14,9 +14,13 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.urls import path
-from courses import views
+from django.contrib import admin
+from django.urls import path, include
+from courses import views as course_views
+
 
 urlpatterns = [
-    path('enroll/<str:course_id>/<int:student_id>/', views.enroll_in_course, name='enroll_in_course'),
+    path('admin/', admin.site.urls),
+    path('courses/', include('courses.urls', namespace='courses')),
+    path('', course_views.home, name='home'),  # Ensure this directs to the home view
 ]
